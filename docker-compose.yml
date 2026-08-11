@@ -1,0 +1,12 @@
+services:
+  scores:
+    build: .
+    container_name: score_server
+    environment:
+      PORT: "8091"
+      DB_PATH: /data/scores.db
+    ports:
+      - "127.0.0.1:8091:8091"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
