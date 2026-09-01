@@ -23,18 +23,16 @@ if (!apiKey || !secret) {
 // after an earlier seeding needs a manual reset first:
 //   sqlite3 data/scores.db "DELETE FROM scores WHERE game_id='pref' AND player_id LIKE 'seed-%';"
 // then rerun this script.
-// Values are a quarter of the classic offline table, in the x10 wire scale
-// (Эйнштейн 250.0 whists -> 2500).
 const seeds = [
-  ["Эйнштейн", 2500],
-  ["Да Винчи", 1875],
-  ["Перельман", 1250],
-  ["Вован", 750],
-  ["Настасья", 625],
-  ["Алексей", 500],
-  ["Андрей", 375],
-  ["Григорий", 250],
-  ["Ирина", 125],
+  ["Эйнштейн", 10000],
+  ["Да Винчи", 7500],
+  ["Перельман", 5000],
+  ["Вован", 3000],
+  ["Настасья", 2500],
+  ["Алексей", 2000],
+  ["Андрей", 1500],
+  ["Григорий", 1000],
+  ["Ирина", 500],
   ["Степан", 0],
 ];
 
