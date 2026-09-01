@@ -19,16 +19,20 @@ if (!apiKey || !secret) {
   process.exit(1);
 }
 
+// NOTE: the board keeps each player's BEST score, so lowering these values
+// after an earlier seeding needs a manual reset first:
+//   sqlite3 data/scores.db "DELETE FROM scores WHERE game_id='pref' AND player_id LIKE 'seed-%';"
+// then rerun this script.
 const seeds = [
-  ["Эйнштейн", 10000],
-  ["Да Винчи", 7500],
-  ["Перельман", 5000],
-  ["Вован", 3000],
-  ["Настасья", 2500],
-  ["Алексей", 2000],
-  ["Андрей", 1500],
-  ["Григорий", 1000],
-  ["Ирина", 500],
+  ["Эйнштейн", 1000],
+  ["Да Винчи", 750],
+  ["Перельман", 500],
+  ["Вован", 300],
+  ["Настасья", 250],
+  ["Алексей", 200],
+  ["Андрей", 150],
+  ["Григорий", 100],
+  ["Ирина", 50],
   ["Степан", 0],
 ];
 
