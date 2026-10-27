@@ -35,7 +35,8 @@ GET  /v1/{game}/boards/{board}/rank/{player}
 ```
 
 Boards keep each player's **best** score; ties rank by who got there
-first. Every submission (accepted or rejected) lands in the
+first. The shown name is the one from the player's latest accepted
+submission, so a rename lands without a new best. Every submission (accepted or rejected) lands in the
 `submissions` audit table with IP and timestamps.
 
 Season naming convention for clients: submit season scores to board

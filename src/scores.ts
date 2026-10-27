@@ -66,15 +66,18 @@ export function submitScore(
     reason ?? null,
   );
 
+  // Every accepted submit carries the player's current name (a rename
+  // shows without a new best); score and the tie-breaking time move only
+  // on a new best.
   if (accepted) {
     db.prepare(
       `INSERT INTO scores (game_id, board_id, player_id, name, score, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT (game_id, board_id, player_id) DO UPDATE SET
          name = excluded.name,
-         score = excluded.score,
-         updated_at = excluded.updated_at
-       WHERE excluded.score > scores.score`,
+         score = MAX(scores.score, excluded.score),
+         updated_at = CASE WHEN excluded.score > scores.score
+                           THEN excluded.updated_at ELSE scores.updated_at END`,
     ).run(game.id, boardId, playerId, name, score, nowS);
   }
 

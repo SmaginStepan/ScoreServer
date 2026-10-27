@@ -79,5 +79,16 @@ const rankResponse = await (await fetch(`${base}/v1/demo/boards/main/rank/p1`, {
 })).json();
 assert.equal(rankResponse.rank, 3);
 
+// A rename shows with any accepted submit; the best score and order stay.
+assert.equal((await submit("main", "p3", "Cara Nova", 10)).best, 150, "a lower score keeps the best");
+const renamedResponse = await (await fetch(`${base}/v1/demo/boards/main/top?limit=10`, {
+  headers: { "X-Api-Key": apiKey },
+})).json();
+assert.deepEqual(
+  renamedResponse.entries.map((entry) => [entry.player_id, entry.name, entry.score]),
+  [["p2", "Bob", 200], ["p3", "Cara Nova", 150], ["p1", "Alice", 100]],
+  "renamed without a new best",
+);
+
 server.close();
 console.log("smoke ok");
