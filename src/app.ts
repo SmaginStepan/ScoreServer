@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { z } from "zod";
 import type { Db, Game } from "./db.js";
 import { verify } from "./hmac.js";
+import { checkPurchase, type PurchaseChecks } from "./purchases.js";
 import { currentSeason, dealForIndex } from "./seasons.js";
 import { submitScore, top, around, rankOf } from "./scores.js";
 
@@ -12,14 +13,25 @@ const submitBody = z.object({
   device_ts: z.number().int().optional(),
 });
 
+const purchaseBody = z.object({
+  player_id: z.string().min(1).max(64),
+  store: z.enum(["google", "apple"]),
+  product_id: z.string().min(1).max(64),
+  token: z.string().min(1).max(16384),
+});
+
 interface GameRequest extends Request {
   game?: Game;
   rawBody?: Buffer;
 }
 
+export interface AppOptions {
+  purchases?: PurchaseChecks;
+}
+
 // Exported separately from the listener so the smoke test can drive
 // the app in-process against a temp database.
-export function createApp(db: Db) {
+export function createApp(db: Db, options: AppOptions = {}) {
   const app = express();
   app.set("trust proxy", true);
   app.use(
@@ -148,6 +160,37 @@ export function createApp(db: Db) {
       );
 
       res.json(result);
+    },
+  );
+
+  // A store purchase to check before the game grants it. A refused one
+  // answers valid: false; 503 means the store could not be asked, and
+  // the game keeps the purchase unfinished to ask again later.
+  app.post(
+    "/v1/:game/purchases",
+    gameAuth,
+    signedWrite,
+    async (req: GameRequest, res) => {
+      const parsed = purchaseBody.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "bad body" });
+        return;
+      }
+
+      const claim = parsed.data;
+      try {
+        const result = await checkPurchase(
+          db, req.game!, claim, options.purchases ?? {}, Math.floor(Date.now() / 1000));
+        if (!result.valid) {
+          console.warn(
+            `purchase refused: ${req.game!.id} ${claim.store} ${claim.product_id} player ${claim.player_id}: ${result.reason}`);
+        }
+
+        res.json(result);
+      } catch (error) {
+        console.error(`purchase check failed: ${req.game!.id} ${claim.store} ${claim.product_id}: ${error}`);
+        res.status(503).json({ error: "store unavailable, try again later" });
+      }
     },
   );
 

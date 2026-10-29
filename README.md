@@ -35,13 +35,44 @@ GET  /v1/{game}/boards/{board}/rank/{player}
 ```
 
 Boards keep each player's **best** score; ties rank by who got there
-first. The shown name is the one from the player's latest accepted
+first.
+
+Boards whose id starts with `total:` (for example `total:2026-11`) are
+**running-total** boards instead: the score may be negative (down to
+`-max_score`) and each accepted submission *replaces* the previous one, up
+or down. Use them for races where every finished round adds to a
+player's total. All other boards, including `alltime` and `season:*`,
+keep the best-score rules and reject negatives. The shown name is the one from the player's latest accepted
 submission, so a rename lands without a new best. Every submission (accepted or rejected) lands in the
 `submissions` audit table with IP and timestamps.
 
 Season naming convention for clients: submit season scores to board
 `season:{season_id}` using the id from `season/current`; keep `alltime`
 as the never-rotating board.
+
+## Purchases
+
+```
+POST /v1/{game}/purchases   {player_id, store: google|apple, product_id, token}
+```
+
+A game asks here before it grants an in-app purchase. `token` is the
+Google Play purchase token, or the App Store's StoreKit 2 signed
+transaction (JWS). The answer is `{valid: true, product_id,
+transaction_id, repeat}` or `{valid: false, reason}`; a 503 means the
+store could not be asked, so the game leaves the purchase unfinished
+and asks again later. Each store transaction is granted once, to the
+player who first showed it (`repeat: true` when that player asks again).
+
+- **Apple** needs no credentials: the JWS chain must end at Apple Root
+  CA - G3 (pinned by SHA-256 fingerprint; `APPLE_ROOT_SHA256` overrides)
+  and the bundle id and product must match.
+- **Google** needs a service account key: create one in Google Cloud,
+  invite its e-mail in the Play Console (Users and permissions, with
+  access to orders), and put the JSON at `data/google-service-account.json`
+  (chmod 600). Without it Google purchases answer 503.
+- Register each game's apps: `npm run admin -- set-store xlab google
+  com.aN0obIs.XLab` and `... set-store xlab apple com.an0obis.xlab`.
 
 ## Honest anti-cheat statement
 

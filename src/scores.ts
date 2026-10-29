@@ -14,8 +14,16 @@ export interface SubmitResult {
   rank: number | null;
 }
 
-// Submissions always land in the audit table; the visible board keeps
-// only each player's best score. Ties rank by who got there first.
+// Boards whose id starts with this prefix hold a running total instead of a
+// best score: the total can go down and below zero, and a new submission
+// replaces the previous one. (Season races where every finished round adds
+// to — or subtracts from — a player's total.) Every other board keeps the
+// best-score rules.
+export const RUNNING_TOTAL_PREFIX = "total:";
+
+// Submissions always land in the audit table; an ordinary board keeps only
+// each player's best score, a running-total board the latest one. Ties rank
+// by who got there first.
 export function submitScore(
   db: Db,
   game: Game,
@@ -30,7 +38,13 @@ export function submitScore(
   let accepted = true;
   let reason: string | undefined;
 
-  if (score < 0 || !Number.isSafeInteger(score)) {
+  const running = boardId.startsWith(RUNNING_TOTAL_PREFIX);
+  // a running total may be negative, down to the mirror of the game cap
+  const belowRange = running
+    ? game.max_score !== null && score < -game.max_score
+    : score < 0;
+
+  if (belowRange || !Number.isSafeInteger(score)) {
     accepted = false;
     reason = "score out of range";
   } else if (game.max_score !== null && score > game.max_score) {
@@ -66,10 +80,20 @@ export function submitScore(
     reason ?? null,
   );
 
-  // Every accepted submit carries the player's current name (a rename
-  // shows without a new best); score and the tie-breaking time move only
-  // on a new best.
-  if (accepted) {
+  if (accepted && running) {
+    // the latest total wins, up or down
+    db.prepare(
+      `INSERT INTO scores (game_id, board_id, player_id, name, score, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (game_id, board_id, player_id) DO UPDATE SET
+         name = excluded.name,
+         score = excluded.score,
+         updated_at = excluded.updated_at`,
+    ).run(game.id, boardId, playerId, name, score, nowS);
+  } else if (accepted) {
+    // Every accepted submit carries the player's current name (a rename
+    // shows without a new best); score and the tie-breaking time move only
+    // on a new best.
     db.prepare(
       `INSERT INTO scores (game_id, board_id, player_id, name, score, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)

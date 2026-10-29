@@ -90,5 +90,24 @@ assert.deepEqual(
   "renamed without a new best",
 );
 
+// Running-total boards ("total:<id>"): negatives allowed, the latest total wins.
+assert.equal((await submit("main", "p9", "Neg", -5)).accepted, false, "ordinary boards still reject negatives");
+const first = await submit("total:2026-11", "p1", "Alice", -50);
+assert.equal(first.accepted, true, "a negative running total is accepted");
+assert.equal(first.best, -50);
+assert.equal((await submit("total:2026-11", "p1", "Alice", 30)).best, 30, "a higher total replaces it");
+assert.equal((await submit("total:2026-11", "p1", "Alice", -20)).best, -20, "a lower total replaces it too (latest wins)");
+assert.equal((await submit("total:2026-11", "p2", "Bob", 10)).rank, 1, "Bob's 10 beats Alice's -20");
+assert.equal((await submit("total:2026-11", "p3", "Cara", -2000)).accepted, false, "below the mirrored cap is rejected");
+assert.equal((await submit("total:2026-11", "p4", "Dan", 5000)).accepted, false, "above the cap is rejected");
+const totals = await (await fetch(`${base}/v1/demo/boards/total:2026-11/top?limit=10`, {
+  headers: { "X-Api-Key": apiKey },
+})).json();
+assert.deepEqual(
+  totals.entries.map((entry) => [entry.player_id, entry.score]),
+  [["p2", 10], ["p1", -20]],
+  "running-total order, negatives included",
+);
+
 server.close();
 console.log("smoke ok");

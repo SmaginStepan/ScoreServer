@@ -66,6 +66,30 @@ export function openDb(path: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_submissions_player
       ON submissions (game_id, board_id, player_id, server_ts DESC);
 
+    -- A game's app in each store, for purchase checks: the Android
+    -- package name ('google') and the iOS bundle id ('apple').
+    CREATE TABLE IF NOT EXISTS game_stores (
+      game_id TEXT NOT NULL,
+      store   TEXT NOT NULL,
+      app_id  TEXT NOT NULL,
+      PRIMARY KEY (game_id, store)
+    );
+
+    -- Store purchases granted, one row per store transaction (Google:
+    -- the purchase token; Apple: the transaction id), so a receipt shown
+    -- twice grants once.
+    CREATE TABLE IF NOT EXISTS purchases (
+      store          TEXT NOT NULL,
+      transaction_id TEXT NOT NULL,
+      game_id        TEXT NOT NULL,
+      player_id      TEXT NOT NULL,
+      product_id     TEXT NOT NULL,
+      -- Apple: Sandbox | Production; Google: Test (license tester) | Production.
+      environment    TEXT,
+      created_at     INTEGER NOT NULL,
+      PRIMARY KEY (store, transaction_id)
+    );
+
     -- Who saw which private deal when (duplicate-bridge audit).
     CREATE TABLE IF NOT EXISTS deal_access (
       game_id       TEXT NOT NULL,

@@ -5,6 +5,9 @@ services:
     environment:
       PORT: "8091"
       DB_PATH: /data/scores.db
+      # Optional: a Google service account key (JSON) with access to the
+      # apps in the Play Console turns on Google Play purchase checks.
+      GOOGLE_SERVICE_ACCOUNT_FILE: /data/google-service-account.json
     ports:
       - "127.0.0.1:8091:8091"
     volumes:
