@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { openDb } from "./db.js";
@@ -7,8 +7,11 @@ import { openDb } from "./db.js";
 //   npm run admin -- register-game xlab "XLab" --rotation weekly --min-interval 10
 //   npm run admin -- set-limits xlab --max-score 100000 --min-interval 10
 //   npm run admin -- create-season bridge 2026-S1 2026-08-01 2026-11-01 --payload-file deals.json
+//   npm run admin -- set-store xlab google com.aN0obIs.XLab
+//   npm run admin -- set-store xlab apple com.an0obis.xlab
 //   npm run admin -- list-games
 //   npm run admin -- list-seasons bridge
+//   npm run admin -- list-purchases xlab
 
 const DB_PATH = process.env.DB_PATH ?? "./data/scores.db";
 const db = openDb(DB_PATH);
@@ -74,6 +77,24 @@ switch (command) {
     break;
   }
 
+  case "set-rotation": {
+    const [id, rotation] = args;
+    if (!id || !["none", "weekly", "monthly"].includes(rotation ?? "")) {
+      console.error("usage: set-rotation <game> <none|weekly|monthly>");
+      process.exit(1);
+    }
+
+    const game = db.prepare(`SELECT id FROM games WHERE id = ?`).get(id);
+    if (!game) {
+      console.error(`no game '${id}'`);
+      process.exit(1);
+    }
+
+    db.prepare(`UPDATE games SET rotation = ? WHERE id = ?`).run(rotation, id);
+    console.log(`${id}: rotation is now ${rotation}`);
+    break;
+  }
+
   case "create-season": {
     const [gameId, seasonId, startsIso, endsIso] = args;
     if (!gameId || !seasonId || !startsIso || !endsIso) {
@@ -98,9 +119,40 @@ switch (command) {
     break;
   }
 
+  // The game's app in a store, so purchases there can be checked.
+  case "set-store": {
+    const [gameId, store, appId] = args;
+    if (!gameId || (store !== "google" && store !== "apple") || !appId) {
+      console.error("usage: set-store <game> <google|apple> <package name or bundle id>");
+      process.exit(1);
+    }
+
+    db.prepare(
+      `INSERT INTO game_stores (game_id, store, app_id) VALUES (?, ?, ?)
+       ON CONFLICT (game_id, store) DO UPDATE SET app_id = excluded.app_id`,
+    ).run(gameId, store, appId);
+    console.log(`${gameId} on ${store}: ${appId}`);
+    break;
+  }
+
   case "list-games": {
     for (const game of db.prepare(`SELECT id, name, rotation, payload_private, max_score, min_interval_s FROM games`).all()) {
       console.log(JSON.stringify(game));
+    }
+
+    for (const app of db.prepare(`SELECT game_id, store, app_id FROM game_stores ORDER BY game_id, store`).all()) {
+      console.log(JSON.stringify(app));
+    }
+    break;
+  }
+
+  case "list-purchases": {
+    for (const purchase of db
+      .prepare(
+        `SELECT store, substr(transaction_id, 1, 24) AS transaction_id, player_id, product_id, environment, created_at
+         FROM purchases WHERE game_id = ? ORDER BY created_at DESC LIMIT 100`)
+      .all(args[0])) {
+      console.log(JSON.stringify(purchase));
     }
     break;
   }
@@ -115,6 +167,6 @@ switch (command) {
   }
 
   default:
-    console.error("commands: register-game, set-limits, create-season, list-games, list-seasons");
+    console.error("commands: register-game, set-limits, set-rotation, set-store, create-season, list-games, list-seasons, list-purchases");
     process.exit(1);
 }
