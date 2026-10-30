@@ -1,0 +1,7 @@
+node_modules
+dist
+data
+.env
+*-keys.txt
+deploy/scores*.conf
+.git

@@ -13,3 +13,9 @@ services:
     volumes:
       - ./data:/data
     restart: unless-stopped
+    # Purchase refusals log player ids; keep at most ~30 MB of logs.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

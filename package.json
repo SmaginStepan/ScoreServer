@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "admin": "node dist/admin.js",
-    "smoke": "node test/smoke.mjs && node test/purchases.mjs"
+    "smoke": "node test/smoke.mjs && node test/purchases.mjs && node test/delete-player.mjs",
+    "delete-player": "node dist/delete-player.js"
   }
 }

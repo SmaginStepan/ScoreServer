@@ -96,6 +96,63 @@ docker compose up -d --build       # serves 127.0.0.1:8091, db in ./data
 Put `deploy/nginx-scores.conf` behind your existing TLS (subdomain
 recommended). Back up the single `data/scores.db` file.
 
+## Retention
+
+The server prunes once at startup and then daily (`src/retention.ts`):
+
+- **Submission-log IPs:** cleared after 90 days. The rest of each log row
+  (player id, name, score, time) stays for retro-bans and the min-interval
+  rule, until the player's data is deleted on request.
+- **Pre-deletion backups** (`data/backups/pre-delete-*.db`): removed after
+  7 days. They still hold the deleted player's data, so together with the
+  deletion itself this stays inside the policy's 30 days.
+- **Container logs:** capped at 3 × 10 MB by `docker-compose.yml`.
+
+Other copies of the database that you make by hand (for example
+`data/scores.db.bak-*`) are not pruned automatically. Delete them within 30
+days, since they hold everyone's data.
+
+## Handling a deletion request
+
+The privacy policy (preferansmaster.com/privacy#delete) promises to delete
+a player's board and season entries and their submission-log rows,
+including IPs, within 30 days of an email request. Store purchase records
+are not part of that and are kept.
+
+1. **Find the player.** This is a dry run (the default) and changes
+   nothing. Use the name from the email, exactly as typed; case and
+   surrounding spaces don't matter.
+
+   ```bash
+   docker exec score_server node dist/delete-player.js --game pref --name "Ivan"
+   ```
+
+   It lists every Player ID that ever used that name, with the last
+   submission time and the score on each board, followed by what would be
+   deleted. A name is not proof of ownership. If several players share
+   it, the command stops (exit code 2). Ask the requester for their
+   Player ID, or roughly when they played and what score they had, and
+   pick the matching id.
+
+2. **Delete.** Re-run with the chosen id and `--confirm`:
+
+   ```bash
+   docker exec score_server node dist/delete-player.js --game pref --name "Ivan" --player-id <uuid> --confirm
+   ```
+
+   It backs up the database to `data/backups/pre-delete-<time>.db`, then
+   deletes the `scores`, `submissions` and `deal_access` rows in one
+   transaction. Rankings are computed on every read, so the player is off
+   the boards immediately. Running it again is safe and reports "nothing
+   to delete". `--all-matching` deletes every player with that name;
+   only use it if the requester owns all of them. `--board <id>` limits
+   the deletion to one board.
+
+3. **Reply to the player**, for example: "We have deleted your Preferans
+   Master leaderboard and season entries and the related submission
+   records, including IP addresses. A safety backup taken just before the
+   deletion is erased automatically within 7 days."
+
 ## Clients
 
 Unity: use the ScoreClientUnity package (separate repo) — a thin
